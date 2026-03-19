@@ -4,94 +4,212 @@
   <meta charset="UTF-8">
   <title>ファイトカマキリ</title>
   <style>
-    body { margin: 0; background: #222; color: white; text-align: center; }
-    canvas { background: #333; display: block; margin: 0 auto; }
+    body { margin: 0; background: #1b5e20; color: white; text-align: center; }
+    canvas { background: #2e7d32; display: block; margin: 0 auto; }
+    #nextBtn, #retryBtn { display: none; margin: 10px; padding: 10px 20px; font-size: 16px; cursor: pointer; }
   </style>
 </head>
 <body>
   <h1>ファイトカマキリ</h1>
-  <p>←→で移動 / スペースで攻撃</p>
-  <canvas id="game" width="600" height="400"></canvas>
+  <p>←→↑↓で移動 / スペースで攻撃</p>
+  <button id="nextBtn">次の敵へ</button>
+  <button id="retryBtn">リトライ</button>
+  <canvas id="game" width="800" height="500"></canvas>
 
   <script>
     const canvas = document.getElementById("game");
     const ctx = canvas.getContext("2d");
+    const nextBtn = document.getElementById("nextBtn");
+    const retryBtn = document.getElementById("retryBtn");
 
-    let player = { x: 50, y: 300, w: 40, h: 40, hp: 100 };
-    let enemy = { x: 500, y: 300, w: 40, h: 40, hp: 100 };
+    let level = 1;
+    let playerRange = 150;
+    const enemyRange = 60;
 
+    let player = { x: 50, y: 350, w: 40, h: 40, hp: 100, cooldown: 0, effect: 0, dir: "right", speed: 5, power: 10, atkDelay: 20 };
+    let enemy = createEnemy();
+    let items = [];
     let keys = {};
-    let playerAttack = false;
-    let enemyAttack = false;
 
     document.addEventListener("keydown", e => keys[e.code] = true);
     document.addEventListener("keyup", e => keys[e.code] = false);
 
+    nextBtn.onclick = () => { level++; resetPlayer(); enemy = createEnemy(); spawnItems(); nextBtn.style.display = "none"; loop(); };
+    retryBtn.onclick = () => { level = 1; resetPlayer(); enemy = createEnemy(); spawnItems(); retryBtn.style.display = "none"; loop(); };
+
+    function resetPlayer() { player.x = 50; player.y = 350; player.hp = 100; player.cooldown = 0; player.dir = "right"; player.speed = 5; player.power = 10; player.atkDelay = 20; }
+
+    function createEnemy() { let isBoss = level % 5 === 0; return { x: 700, y: 350, w: isBoss ? 60 : 40, h: isBoss ? 60 : 40, hp: isBoss ? 200 : 100, cooldown: 0, isBoss, effect: 0 }; }
+
+    function spawnItems() { items = []; for (let i = 0; i < 4; i++) { items.push({ x: Math.random() * 700 + 50, y: Math.random() * 400 + 50, type: i }); } }
+
     function update() {
-      // プレイヤー移動
-      if (keys["ArrowLeft"]) player.x -= 5;
-      if (keys["ArrowRight"]) player.x += 5;
+      if (keys["ArrowLeft"]) { player.x -= player.speed; player.dir = "left"; }
+      if (keys["ArrowRight"]) { player.x += player.speed; player.dir = "right"; }
+      if (keys["ArrowUp"]) { player.y -= player.speed; player.dir = "up"; }
+      if (keys["ArrowDown"]) { player.y += player.speed; player.dir = "down"; }
 
-      // 攻撃
-      if (keys["Space"]) playerAttack = true;
-      else playerAttack = false;
+      player.x = Math.max(0, Math.min(canvas.width - player.w, player.x));
+      player.y = Math.max(0, Math.min(canvas.height - player.h, player.y));
 
-      // 敵AI（近づいて攻撃）
-      if (enemy.x > player.x) enemy.x -= 2;
-      else enemy.x += 2;
+      if (player.cooldown > 0) player.cooldown--;
+      if (enemy.cooldown > 0) enemy.cooldown--;
+      if (player.effect > 0) player.effect--;
+      if (enemy.effect > 0) enemy.effect--;
 
-      if (Math.abs(enemy.x - player.x) < 50) {
-        enemyAttack = Math.random() < 0.05;
+      if (keys["Space"] && player.cooldown === 0) {
+        let hit = false;
+        if (player.dir === "right" && enemy.x > player.x && enemy.x < player.x + playerRange && Math.abs(player.y - enemy.y) < player.h) hit = true;
+        if (player.dir === "left" && enemy.x < player.x && enemy.x > player.x - playerRange && Math.abs(player.y - enemy.y) < player.h) hit = true;
+        if (player.dir === "up" && enemy.y < player.y && enemy.y > player.y - playerRange && Math.abs(player.x - enemy.x) < player.w) hit = true;
+        if (player.dir === "down" && enemy.y > player.y && enemy.y < player.y + playerRange && Math.abs(player.x - enemy.x) < player.w) hit = true;
+        if (hit) enemy.hp -= player.power;
+        player.cooldown = player.atkDelay;
+        player.effect = 12;
       }
 
-      // 当たり判定
-      if (playerAttack && Math.abs(player.x - enemy.x) < 50) {
-        enemy.hp -= 1;
+      if (enemy.x > player.x) enemy.x -= 1.2;
+      if (enemy.x < player.x) enemy.x += 1.2;
+      if (enemy.y > player.y) enemy.y -= 1.2;
+      if (enemy.y < player.y) enemy.y += 1.2;
+
+      if (enemy.cooldown === 0 && Math.abs(enemy.x - player.x) < enemyRange && Math.abs(enemy.y - player.y) < enemyRange) {
+        if (Math.random() < 0.1) { player.hp -= enemy.isBoss ? 20 : 10; enemy.cooldown = 40; enemy.effect = 10; }
       }
 
-      if (enemyAttack && Math.abs(player.x - enemy.x) < 50) {
-        player.hp -= 1;
-      }
+      items = items.filter(item => {
+        if (Math.abs(player.x - item.x) < 30 && Math.abs(player.y - item.y) < 30) {
+          if (item.type === 0) player.hp = Math.min(100, player.hp + 30);
+          if (item.type === 1) player.speed += 1;
+          if (item.type === 2) player.power += 5;
+          if (item.type === 3) player.atkDelay = Math.max(5, player.atkDelay - 3);
+          return false;
+        }
+        return true;
+      });
 
-      // HP制限
       player.hp = Math.max(player.hp, 0);
       enemy.hp = Math.max(enemy.hp, 0);
+    }
+
+    function drawSlashEffect() {
+      if (player.effect > 0) {
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        if (player.dir === "right") {
+          ctx.moveTo(player.x + player.w, player.y);
+          ctx.lineTo(player.x + player.w + playerRange, player.y + player.h);
+        } else if (player.dir === "left") {
+          ctx.moveTo(player.x, player.y);
+          ctx.lineTo(player.x - playerRange, player.y + player.h);
+        } else if (player.dir === "up") {
+          ctx.moveTo(player.x, player.y);
+          ctx.lineTo(player.x + player.w, player.y - playerRange);
+        } else if (player.dir === "down") {
+          ctx.moveTo(player.x, player.y + player.h);
+          ctx.lineTo(player.x + player.w, player.y + player.h + playerRange);
+        }
+        ctx.stroke();
+      }
+    }
+
+    function drawArms() {
+      ctx.fillStyle = "darkgreen";
+      let swing = player.effect > 0 ? (12 - player.effect) * 2 : 0;
+      if (player.dir === "right") {
+        ctx.fillRect(player.x + player.w, player.y + 5 - swing, 20, 5);
+        ctx.fillRect(player.x + player.w, player.y + 30 + swing, 20, 5);
+      } else if (player.dir === "left") {
+        ctx.fillRect(player.x - 20, player.y + 5 - swing, 20, 5);
+        ctx.fillRect(player.x - 20, player.y + 30 + swing, 20, 5);
+      } else if (player.dir === "up") {
+        ctx.fillRect(player.x + 5 - swing, player.y - 20, 5, 20);
+        ctx.fillRect(player.x + 30 + swing, player.y - 20, 5, 20);
+      } else if (player.dir === "down") {
+        ctx.fillRect(player.x + 5 - swing, player.y + player.h, 5, 20);
+        ctx.fillRect(player.x + 30 + swing, player.y + player.h, 5, 20);
+      }
+    }
+
+    function drawItems() {
+      items.forEach(item => {
+        if (item.type === 0) ctx.fillStyle = "lime";
+        if (item.type === 1) ctx.fillStyle = "blue";
+        if (item.type === 2) ctx.fillStyle = "red";
+        if (item.type === 3) ctx.fillStyle = "yellow";
+        ctx.fillRect(item.x, item.y, 15, 15);
+      });
+    }
+
+    function drawEyes() {
+      ctx.fillStyle = "black";
+      if (player.dir === "right") {
+        ctx.fillRect(player.x + player.w, player.y + 10, 5, 5);
+        ctx.fillRect(player.x + player.w, player.y + 25, 5, 5);
+      } else if (player.dir === "left") {
+        ctx.fillRect(player.x - 5, player.y + 10, 5, 5);
+        ctx.fillRect(player.x - 5, player.y + 25, 5, 5);
+      } else if (player.dir === "up") {
+        ctx.fillRect(player.x + 10, player.y - 5, 5, 5);
+        ctx.fillRect(player.x + 25, player.y - 5, 5, 5);
+      } else if (player.dir === "down") {
+        ctx.fillRect(player.x + 10, player.y + player.h, 5, 5);
+        ctx.fillRect(player.x + 25, player.y + player.h, 5, 5);
+      }
     }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // プレイヤー（緑）
+      drawSlashEffect();
+
+      if (player.effect > 0) {
+        ctx.fillStyle = "rgba(0,255,0,0.3)";
+        if (player.dir === "right") ctx.fillRect(player.x, player.y, playerRange, player.h);
+        if (player.dir === "left") ctx.fillRect(player.x - playerRange, player.y, playerRange, player.h);
+        if (player.dir === "up") ctx.fillRect(player.x, player.y - playerRange, player.w, playerRange);
+        if (player.dir === "down") ctx.fillRect(player.x, player.y, player.w, playerRange);
+      }
+
+      if (enemy.effect > 0) {
+        ctx.fillStyle = "rgba(255,0,0,0.3)";
+        ctx.fillRect(enemy.x - enemyRange/2, enemy.y - enemyRange/2, enemyRange, enemyRange);
+      }
+
+      drawItems();
+
       ctx.fillStyle = "lime";
       ctx.fillRect(player.x, player.y, player.w, player.h);
+      drawEyes();
+      drawArms();
 
-      // 敵（赤）
-      ctx.fillStyle = "red";
+      ctx.fillStyle = enemy.isBoss ? "purple" : "red";
       ctx.fillRect(enemy.x, enemy.y, enemy.w, enemy.h);
 
-      // HP表示
       ctx.fillStyle = "white";
+      ctx.fillText("レベル: " + level, 360, 20);
       ctx.fillText("自分HP: " + player.hp, 20, 20);
-      ctx.fillText("敵HP: " + enemy.hp, 480, 20);
+      ctx.fillText("敵HP: " + enemy.hp, 650, 20);
 
-      // 終了判定
       if (player.hp <= 0) {
-        ctx.fillText("負け...", 260, 200);
+        ctx.fillText("負け...", 360, 250);
+        retryBtn.style.display = "inline-block";
         return;
       }
+
       if (enemy.hp <= 0) {
-        ctx.fillText("勝ち！", 260, 200);
+        ctx.fillText(enemy.isBoss ? "ボス撃破！" : "撃破！", 340, 250);
+        nextBtn.style.display = "inline-block";
         return;
       }
 
       requestAnimationFrame(loop);
     }
 
-    function loop() {
-      update();
-      draw();
-    }
+    function loop() { update(); draw(); }
 
+    spawnItems();
     loop();
   </script>
 </body>
