@@ -2,36 +2,31 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>カマキリバトル（かんたん版）</title>
+  <title>カマキリバトルゲーム</title>
   <style>
     body {
       margin: 0;
       overflow: hidden;
       background: linear-gradient(to bottom, #a8e063, #56ab2f);
-      font-family: sans-serif;
     }
+
+    canvas {
+      display: block;
+    }
+
     #info {
       position: absolute;
       top: 10px;
       left: 10px;
       color: #003300;
+      font-size: 18px;
       font-weight: bold;
-      background: rgba(255,255,255,0.6);
-      padding: 8px;
-      border-radius: 10px;
     }
-    #uploader {
-      position: absolute;
-      top: 60px;
-      left: 10px;
-    }
-    canvas { display: block; }
   </style>
 </head>
 <body>
 
-<div id="info">矢印キー：移動 / スペース：攻撃</div>
-<input type="file" id="uploader" accept="image/*">
+<div id="info">矢印キーで移動 / スペースで攻撃！</div>
 <canvas id="game"></canvas>
 
 <script>
@@ -40,23 +35,25 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let mantisImg = null;
+// カマキリ画像
+const mantisImg = new Image();
+mantisImg.src = "mantis.png"; // ←この名前で同じフォルダに保存してね
 
-// 画像アップロードで設定
-const uploader = document.getElementById("uploader");
-uploader.addEventListener("change", e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(ev) {
-    mantisImg = new Image();
-    mantisImg.src = ev.target.result;
-  };
-  reader.readAsDataURL(file);
-});
+let player = {
+  x: 100,
+  y: 100,
+  size: 100,
+  speed: 5,
+  attacking: false
+};
 
-let player = { x: 100, y: 100, size: 100, speed: 5, attacking: false };
-let enemy = { x: 500, y: 300, size: 100, alive: true };
+let enemy = {
+  x: 500,
+  y: 300,
+  size: 100,
+  alive: true
+};
+
 let keys = {};
 
 document.addEventListener("keydown", e => {
@@ -75,37 +72,33 @@ function update() {
   if (keys["ArrowLeft"]) player.x -= player.speed;
   if (keys["ArrowRight"]) player.x += player.speed;
 
+  // 当たり判定
   if (player.attacking && enemy.alive) {
     let dx = player.x - enemy.x;
     let dy = player.y - enemy.y;
     let dist = Math.sqrt(dx*dx + dy*dy);
-    if (dist < 100) enemy.alive = false;
-  }
-}
-
-function drawMantis(x, y, size) {
-  if (mantisImg) {
-    ctx.drawImage(mantisImg, x, y, size, size);
-  } else {
-    // 画像がないときの仮表示
-    ctx.fillStyle = "green";
-    ctx.fillRect(x, y, size, size);
+    if (dist < 100) {
+      enemy.alive = false;
+    }
   }
 }
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  drawMantis(player.x, player.y, player.size);
+  // プレイヤー
+  ctx.drawImage(mantisImg, player.x, player.y, player.size, player.size);
 
+  // 敵
   if (enemy.alive) {
-    drawMantis(enemy.x, enemy.y, enemy.size);
+    ctx.drawImage(mantisImg, enemy.x, enemy.y, enemy.size, enemy.size);
   } else {
     ctx.fillStyle = "#003300";
-    ctx.font = "30px sans-serif";
+    ctx.font = "30px Arial";
     ctx.fillText("勝利！", enemy.x, enemy.y);
   }
 
+  // 攻撃エフェクト
   if (player.attacking) {
     ctx.fillStyle = "rgba(255,0,0,0.3)";
     ctx.beginPath();
@@ -120,7 +113,9 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-loop();
+mantisImg.onload = () => {
+  loop();
+};
 </script>
 
 </body>
