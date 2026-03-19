@@ -2,121 +2,97 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>カマキリバトルゲーム</title>
+  <title>ファイトカマキリ</title>
   <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: linear-gradient(to bottom, #a8e063, #56ab2f);
-    }
-
-    canvas {
-      display: block;
-    }
-
-    #info {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      color: #003300;
-      font-size: 18px;
-      font-weight: bold;
-    }
+    body { margin: 0; background: #222; color: white; text-align: center; }
+    canvas { background: #333; display: block; margin: 0 auto; }
   </style>
 </head>
 <body>
+  <h1>ファイトカマキリ</h1>
+  <p>←→で移動 / スペースで攻撃</p>
+  <canvas id="game" width="600" height="400"></canvas>
 
-<div id="info">矢印キーで移動 / スペースで攻撃！</div>
-<canvas id="game"></canvas>
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
 
-<script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+    let player = { x: 50, y: 300, w: 40, h: 40, hp: 100 };
+    let enemy = { x: 500, y: 300, w: 40, h: 40, hp: 100 };
 
-// カマキリ画像
-const mantisImg = new Image();
-mantisImg.src = "mantis.png"; // ←この名前で同じフォルダに保存してね
+    let keys = {};
+    let playerAttack = false;
+    let enemyAttack = false;
 
-let player = {
-  x: 100,
-  y: 100,
-  size: 100,
-  speed: 5,
-  attacking: false
-};
+    document.addEventListener("keydown", e => keys[e.code] = true);
+    document.addEventListener("keyup", e => keys[e.code] = false);
 
-let enemy = {
-  x: 500,
-  y: 300,
-  size: 100,
-  alive: true
-};
+    function update() {
+      // プレイヤー移動
+      if (keys["ArrowLeft"]) player.x -= 5;
+      if (keys["ArrowRight"]) player.x += 5;
 
-let keys = {};
+      // 攻撃
+      if (keys["Space"]) playerAttack = true;
+      else playerAttack = false;
 
-document.addEventListener("keydown", e => {
-  keys[e.key] = true;
-  if (e.key === " ") player.attacking = true;
-});
+      // 敵AI（近づいて攻撃）
+      if (enemy.x > player.x) enemy.x -= 2;
+      else enemy.x += 2;
 
-document.addEventListener("keyup", e => {
-  keys[e.key] = false;
-  if (e.key === " ") player.attacking = false;
-});
+      if (Math.abs(enemy.x - player.x) < 50) {
+        enemyAttack = Math.random() < 0.05;
+      }
 
-function update() {
-  if (keys["ArrowUp"]) player.y -= player.speed;
-  if (keys["ArrowDown"]) player.y += player.speed;
-  if (keys["ArrowLeft"]) player.x -= player.speed;
-  if (keys["ArrowRight"]) player.x += player.speed;
+      // 当たり判定
+      if (playerAttack && Math.abs(player.x - enemy.x) < 50) {
+        enemy.hp -= 1;
+      }
 
-  // 当たり判定
-  if (player.attacking && enemy.alive) {
-    let dx = player.x - enemy.x;
-    let dy = player.y - enemy.y;
-    let dist = Math.sqrt(dx*dx + dy*dy);
-    if (dist < 100) {
-      enemy.alive = false;
+      if (enemyAttack && Math.abs(player.x - enemy.x) < 50) {
+        player.hp -= 1;
+      }
+
+      // HP制限
+      player.hp = Math.max(player.hp, 0);
+      enemy.hp = Math.max(enemy.hp, 0);
     }
-  }
-}
 
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // プレイヤー
-  ctx.drawImage(mantisImg, player.x, player.y, player.size, player.size);
+      // プレイヤー（緑）
+      ctx.fillStyle = "lime";
+      ctx.fillRect(player.x, player.y, player.w, player.h);
 
-  // 敵
-  if (enemy.alive) {
-    ctx.drawImage(mantisImg, enemy.x, enemy.y, enemy.size, enemy.size);
-  } else {
-    ctx.fillStyle = "#003300";
-    ctx.font = "30px Arial";
-    ctx.fillText("勝利！", enemy.x, enemy.y);
-  }
+      // 敵（赤）
+      ctx.fillStyle = "red";
+      ctx.fillRect(enemy.x, enemy.y, enemy.w, enemy.h);
 
-  // 攻撃エフェクト
-  if (player.attacking) {
-    ctx.fillStyle = "rgba(255,0,0,0.3)";
-    ctx.beginPath();
-    ctx.arc(player.x + 50, player.y + 50, 60, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
+      // HP表示
+      ctx.fillStyle = "white";
+      ctx.fillText("自分HP: " + player.hp, 20, 20);
+      ctx.fillText("敵HP: " + enemy.hp, 480, 20);
 
-function loop() {
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
+      // 終了判定
+      if (player.hp <= 0) {
+        ctx.fillText("負け...", 260, 200);
+        return;
+      }
+      if (enemy.hp <= 0) {
+        ctx.fillText("勝ち！", 260, 200);
+        return;
+      }
 
-mantisImg.onload = () => {
-  loop();
-};
-</script>
+      requestAnimationFrame(loop);
+    }
 
+    function loop() {
+      update();
+      draw();
+    }
+
+    loop();
+  </script>
 </body>
 </html>
