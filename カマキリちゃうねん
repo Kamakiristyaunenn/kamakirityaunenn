@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>カマキリバトルゲーム</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: linear-gradient(to bottom, #a8e063, #56ab2f);
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #003300;
+      font-size: 18px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<div id="info">矢印キーで移動 / スペースで攻撃！</div>
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// カマキリ画像
+const mantisImg = new Image();
+mantisImg.src = "mantis.png"; // ←この名前で同じフォルダに保存してね
+
+let player = {
+  x: 100,
+  y: 100,
+  size: 100,
+  speed: 5,
+  attacking: false
+};
+
+let enemy = {
+  x: 500,
+  y: 300,
+  size: 100,
+  alive: true
+};
+
+let keys = {};
+
+document.addEventListener("keydown", e => {
+  keys[e.key] = true;
+  if (e.key === " ") player.attacking = true;
+});
+
+document.addEventListener("keyup", e => {
+  keys[e.key] = false;
+  if (e.key === " ") player.attacking = false;
+});
+
+function update() {
+  if (keys["ArrowUp"]) player.y -= player.speed;
+  if (keys["ArrowDown"]) player.y += player.speed;
+  if (keys["ArrowLeft"]) player.x -= player.speed;
+  if (keys["ArrowRight"]) player.x += player.speed;
+
+  // 当たり判定
+  if (player.attacking && enemy.alive) {
+    let dx = player.x - enemy.x;
+    let dy = player.y - enemy.y;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist < 100) {
+      enemy.alive = false;
+    }
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // プレイヤー
+  ctx.drawImage(mantisImg, player.x, player.y, player.size, player.size);
+
+  // 敵
+  if (enemy.alive) {
+    ctx.drawImage(mantisImg, enemy.x, enemy.y, enemy.size, enemy.size);
+  } else {
+    ctx.fillStyle = "#003300";
+    ctx.font = "30px Arial";
+    ctx.fillText("勝利！", enemy.x, enemy.y);
+  }
+
+  // 攻撃エフェクト
+  if (player.attacking) {
+    ctx.fillStyle = "rgba(255,0,0,0.3)";
+    ctx.beginPath();
+    ctx.arc(player.x + 50, player.y + 50, 60, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+mantisImg.onload = () => {
+  loop();
+};
+</script>
+
+</body>
+</html>
